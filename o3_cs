@@ -1,0 +1,36 @@
+library(epiDisplay)
+library(survival)
+library(openxlsx)
+library(tidyverse)
+library(patchwork)
+
+mydata<-read.csv("")
+
+####### 1. independent effects of O3 and CS ##########
+coxph(Surv(tstart, time, ARD) ~ O3+gender+age_group+occupation+ethic_group+marriage+education+infection+treatment+cd4_group+HC+complications+basic_disease, data=mydata)->cox1
+a<-summary(cox1)$conf.int[1,c(1,3,4)]
+a
+
+coxph(Surv(tstart, time, ARD) ~ coldwave_10_2_days+gender+age_group+occupation+ethic_group+marriage+education+infection+treatment+cd4_group+HC+complications+basic_disease, data=mydata)->cox2
+b<-summary(cox2)$conf.int[1,c(1,3,4)]
+b
+
+##### 2. interactive effects of O3 and CS #########
+####### 2.1 on the scale of multiplication interaction #########
+coxph(Surv(tstart, time, ARD) ~ O3*coldwave_10_2_days+gender+age_group+occupation+ethic_group+marriage+education+infection+treatment+cd4_group+HC+complications+basic_disease, data=mydata)->cox3
+summary(cox3)
+
+################### 2.2 RERI (On the scale of additional interaction) #####################
+library(epiR)
+library(interactionR)
+summary(mydata$O3) ####  median: 51.27 PPB  #######
+mydata$B_O3<-0*(mydata$O3<52.27)+1*(mydata$O3>=52.27) ##  baseline 的50%分位数是52.27， 也可以用这个
+
+summary(mydata$coldwave_10_2_days) ### median 32 days ########
+mydata$B_CS<-0*(mydata$coldwave_10_2_days<32)+1*(mydata$coldwave_10_2_days>=32)
+model.cox <-coxph(Surv(tstart, time, ARD) ~ B_O3*B_CS+
+                    gender+age_group+occupation+ethic_group+marriage+education+
+                    infection+treatment+cd4_group+HC+complications+basic_disease, data=mydata)
+#summary(model.cox)
+table_object = interactionR(model.cox, exposure_names = c("B_O3", "B_CS"), ci.type = "delta", ci.level = 0.95, em = F, recode = F)
+table_object$dframe[c(9,10),] 
